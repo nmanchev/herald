@@ -5,11 +5,15 @@ dist/
 build/
 .eggs/
 
-# Secrets
+# Secrets and private data
 herald.toml
 credentials.json
 token.json
 *.env
+stakeholders/*
+!stakeholders/example.md
+queries/*
+!queries/example.sql
 
 # Project docs (local only)
 BRIEFING.md

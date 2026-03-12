@@ -1,0 +1,121 @@
+#!/usr/bin/env bash
+# Herald pre-commit hook — blocks commits containing sensitive content.
+# Install: cp scripts/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
+
+set -euo pipefail
+
+RED='\033[0;31m'
+YELLOW='\033[0;33m'
+NC='\033[0m'
+
+BLOCKED=0
+
+# --- 1. Block sensitive file paths ---
+# These should never be committed, even via git add -f
+FORBIDDEN_PATHS=(
+    "herald.toml"
+    "credentials.json"
+    "token.json"
+)
+
+FORBIDDEN_DIRS=(
+    "stakeholders/"
+    "queries/"
+)
+
+ALLOWED_FILES=(
+    "stakeholders/example.md"
+    "queries/example.sql"
+)
+
+staged_files=$(git diff --cached --name-only --diff-filter=ACM)
+
+for file in $staged_files; do
+    # Check forbidden exact paths
+    for forbidden in "${FORBIDDEN_PATHS[@]}"; do
+        if [[ "$file" == "$forbidden" ]]; then
+            echo -e "${RED}BLOCKED:${NC} $file is a sensitive config file and must not be committed."
+            BLOCKED=1
+        fi
+    done
+
+    # Check forbidden directories (allow exemptions)
+    for dir in "${FORBIDDEN_DIRS[@]}"; do
+        if [[ "$file" == ${dir}* ]]; then
+            is_allowed=false
+            for allowed in "${ALLOWED_FILES[@]}"; do
+                if [[ "$file" == "$allowed" ]]; then
+                    is_allowed=true
+                    break
+                fi
+            done
+            if [[ "$is_allowed" == false ]]; then
+                echo -e "${RED}BLOCKED:${NC} $file contains private data and must not be committed."
+                BLOCKED=1
+            fi
+        fi
+    done
+done
+
+# --- 2. Scan staged content for sensitive patterns ---
+SENSITIVE_PATTERNS=(
+    # Databricks tokens
+    'dapi[0-9a-f]{32}'
+    # Generic API keys / tokens (long hex or base64 strings assigned to token/key/secret vars)
+    '(token|key|secret|password)\s*=\s*"[^$][^"]{16,}"'
+    # Email addresses (catch real addresses leaking into tracked files)
+    '[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.(com|org|net|io|ai|co|dev)'
+)
+
+# Only scan files that are not in ALLOWED_FILES exemption list and not binary
+for file in $staged_files; do
+    # Skip allowed example files
+    skip=false
+    for allowed in "${ALLOWED_FILES[@]}"; do
+        if [[ "$file" == "$allowed" ]]; then
+            skip=true
+            break
+        fi
+    done
+    if [[ "$skip" == true ]]; then
+        continue
+    fi
+
+    # Skip binary files
+    if file --mime "$file" 2>/dev/null | grep -q "binary"; then
+        continue
+    fi
+
+    # Get staged content (not working tree)
+    staged_content=$(git show ":$file" 2>/dev/null || true)
+    if [[ -z "$staged_content" ]]; then
+        continue
+    fi
+
+    for pattern in "${SENSITIVE_PATTERNS[@]}"; do
+        matches=$(echo "$staged_content" | grep -inE "$pattern" || true)
+        if [[ -n "$matches" ]]; then
+            # Allow $ENV_VAR references and example.com addresses
+            filtered=$(echo "$matches" | grep -ivE '(\$\{?\w+\}?|example\.com|example\.org|@example\.)' || true)
+            if [[ -n "$filtered" ]]; then
+                echo -e "${YELLOW}WARNING in $file:${NC}"
+                echo "$filtered" | head -5
+                echo -e "${RED}BLOCKED:${NC} Potential sensitive content detected. Review above."
+                BLOCKED=1
+            fi
+        fi
+    done
+done
+
+# --- Result ---
+if [[ $BLOCKED -ne 0 ]]; then
+    echo ""
+    echo -e "${RED}Commit blocked.${NC} Fix the issues above or use HERALD_SKIP_CHECK=1 git commit to bypass (not recommended)."
+    if [[ "${HERALD_SKIP_CHECK:-}" == "1" ]]; then
+        echo -e "${YELLOW}HERALD_SKIP_CHECK is set — allowing commit despite warnings.${NC}"
+        exit 0
+    fi
+    exit 1
+fi
+
+exit 0

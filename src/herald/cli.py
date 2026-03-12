@@ -117,22 +117,25 @@ def _create_backend(config):
 
 
 _EXAMPLE_CONFIG = """# Herald configuration
-# See https://github.com/your-org/herald for documentation
+# See https://github.com/nmanchev/herald for documentation
+#
+# Use $ENV_VAR or ${ENV_VAR} to reference environment variables.
+# Herald expands these at load time. Never hardcode secrets here.
 
 [datasource]
 type = "databricks"
 
 [datasource.params]
-server_hostname = "your-workspace.cloud.databricks.com"
-http_path = "/sql/1.0/warehouses/your-warehouse-id"
-access_token = "your-access-token"
+server_hostname = "$DATABRICKS_HOST"
+http_path = "$DATABRICKS_HTTP_PATH"
+access_token = "$DATABRICKS_TOKEN"
 
 [delivery]
 type = "gmail"
 
 [delivery.params]
-credentials_file = "credentials.json"
-token_file = "token.json"
+credentials_file = "$GMAIL_CREDENTIALS_FILE"
+token_file = "$GMAIL_TOKEN_FILE"
 
 [stakeholders.example]
 name = "Alice Smith"

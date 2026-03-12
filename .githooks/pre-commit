@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# Chained pre-commit hook: runs Herald's security check, then Databricks global hook.
+set -e
+
+# Run Herald's sensitive content check first
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+if [[ -x "$REPO_ROOT/scripts/pre-commit" ]]; then
+    "$REPO_ROOT/scripts/pre-commit" || exit 1
+fi
+
+# Then run Databricks global hook if it exists
+DATABRICKS_HOOK="$HOME/.databricks/githooks/pre-commit"
+if [[ -x "$DATABRICKS_HOOK" ]]; then
+    "$DATABRICKS_HOOK" || exit 1
+fi

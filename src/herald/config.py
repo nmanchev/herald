@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+import re
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -10,6 +12,23 @@ if sys.version_info >= (3, 11):
     import tomllib
 else:
     import tomli as tomllib
+
+
+def _expand_env(value):
+    """Recursively expand $ENV_VAR and ${ENV_VAR} references in config values."""
+    if isinstance(value, str):
+        def _replace(match):
+            var_name = match.group(1) or match.group(2)
+            env_val = os.environ.get(var_name)
+            if env_val is None:
+                raise EnvironmentError(f"Environment variable not set: {var_name}")
+            return env_val
+        return re.sub(r"\$\{(\w+)\}|\$(\w+)", _replace, value)
+    if isinstance(value, dict):
+        return {k: _expand_env(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_expand_env(item) for item in value]
+    return value
 
 
 @dataclass
@@ -57,7 +76,7 @@ class HeraldConfig:
             raise FileNotFoundError(f"Config file not found: {path}")
 
         with open(path, "rb") as f:
-            raw = tomllib.load(f)
+            raw = _expand_env(tomllib.load(f))
 
         datasource = DataSourceConfig(
             type=raw.get("datasource", {}).get("type", "databricks"),
