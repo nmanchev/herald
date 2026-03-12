@@ -1,0 +1,19 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Secrets
+herald.toml
+credentials.json
+token.json
+*.env
+
+# Project docs (local only)
+BRIEFING.md
+
+# IDE
+.vscode/
+.idea/

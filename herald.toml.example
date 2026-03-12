@@ -1,0 +1,31 @@
+# Herald configuration example
+# Copy this to herald.toml and fill in your values
+
+[datasource]
+type = "databricks"
+
+[datasource.params]
+server_hostname = "your-workspace.cloud.databricks.com"
+http_path = "/sql/1.0/warehouses/your-warehouse-id"
+access_token = "your-access-token"
+
+[delivery]
+type = "gmail"
+
+[delivery.params]
+credentials_file = "credentials.json"
+token_file = "token.json"
+
+[stakeholders.alice]
+name = "Alice Smith"
+email = "alice@example.com"
+cc = ["charlie@example.com", "dana@example.com"]
+query = "queries/alice.sql"
+markdown = "stakeholders/alice.md"
+
+[stakeholders.bob]
+name = "Bob Jones"
+email = "bob@example.com"
+cc = ["eve@example.com"]
+query = "queries/bob.sql"
+markdown = "stakeholders/bob.md"
