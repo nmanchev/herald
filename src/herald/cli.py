@@ -112,6 +112,10 @@ def _create_backend(config):
         from herald.backends.gmail import GmailBackend
 
         return GmailBackend(**config.delivery.params)
+    elif config.delivery.type == "gcloud-gmail":
+        from herald.backends.gcloud_gmail import GcloudGmailBackend
+
+        return GcloudGmailBackend(**config.delivery.params)
     else:
         raise ValueError(f"Unknown delivery type: {config.delivery.type}")
 
